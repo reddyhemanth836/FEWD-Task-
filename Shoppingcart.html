@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Shopping Cart</title>
+    <style>
+        :root{
+            --bg:#f6f8fa; --card:#fff; --accent:#0b72ff; --muted:#6b7280;
+            --maxw:1100px;
+        }
+        *{box-sizing:border-box}
+        body{
+            margin:0;
+            font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
+            background:var(--bg);
+            color:#111827;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            min-height:100vh;
+            padding:28px;
+        }
+        .wrap{
+            width:100%;
+            max-width:var(--maxw);
+            display:grid;
+            grid-template-columns: 1fr 360px;
+            gap:20px;
+            flex: 1 1 auto;
+        }
+        footer{
+            width:100%;
+            max-width:var(--maxw);
+            text-align:center;
+            color:var(--muted);
+            font-size:13px;
+            padding:12px 0;
+        }
+        header{
+            grid-column:1/ -1;
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            margin-bottom:6px;
+        }
+        h1{font-size:20px;margin:0}
+        .products, .cart{
+            background:var(--card);
+            border-radius:10px;
+            padding:16px;
+            box-shadow:0 4px 10px rgba(15,23,42,0.06);
+        }
+        .products-grid{
+            display:grid;
+            grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+            gap:12px;
+        }
+        .product{
+            display:flex;
+            flex-direction:column;
+            gap:8px;
+            border-radius:8px;
+            padding:10px;
+            background:linear-gradient(180deg,#fff,#fbfdff);
+            border:1px solid rgba(15,23,42,0.04);
+        }
+        .thumb{
+            height:120px;
+            border-radius:6px;
+            background:linear-gradient(135deg,#eef2ff,#fff);
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            font-size:28px;
+            color:var(--muted);
+        }
+        .pname{font-weight:600;font-size:14px}
+        .pmeta{font-size:13px;color:var(--muted)}
+        .paction{margin-top:auto;display:flex;justify-content:space-between;align-items:center;gap:8px}
+        button{
+            background:var(--accent);
+            color:#fff;
+            border:0;
+            padding:8px 10px;
+            border-radius:8px;
+            cursor:pointer;
+            font-weight:600;
+        }
+        button.ghost{background:transparent;color:var(--accent);border:1px solid rgba(11,114,255,0.12)}
+        .cart h2{margin:0 0 12px 0;font-size:16px}
+        .cart-list{display:flex;flex-direction:column;gap:10px;max-height:420px;overflow:auto;padding-right:6px}
+        .cart-item{
+            display:flex;gap:10px;align-items:center;padding:8px;border-radius:8px;border:1px solid rgba(15,23,42,0.04);
+        }
+        .ci-thumb{width:56px;height:56px;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fff}
+        .ci-meta{flex:1}
+        .ci-name{font-weight:600;font-size:13px}
+        .ci-price{font-size:13px;color:var(--muted)}
+        .qty{display:flex;gap:6px;align-items:center}
+        .qty button{padding:6px 8px;border-radius:6px;background:#eef3ff;color:var(--accent);border:0;font-weight:700}
+        .remove{background:transparent;color:var(--muted);border:0;font-size:13px}
+        .totals{border-top:1px dashed rgba(15,23,42,0.06);padding-top:12px;margin-top:12px;display:flex;flex-direction:column;gap:8px}
+        .row{display:flex;justify-content:space-between}
+        .checkout{display:flex;gap:8px;margin-top:8px}
+        @media (max-width:900px){
+            .wrap{grid-template-columns:1fr; padding:8px}
+            .cart{order:2}
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap" id="app">
+        <header>
+            <h1>Simple Shopping Cart</h1>
+            <div id="status" aria-live="polite" style="color:var(--muted);font-size:13px">Local cart saved in browser</div>
+        </header>
+
+        <section class="products" aria-labelledby="products-heading">
+            <h2 id="products-heading" style="margin:0 0 12px 0;font-size:16px">Products</h2>
+            <div class="products-grid" id="products"></div>
+        </section>
+
+        <aside class="cart" aria-labelledby="cart-heading">
+            <h2 id="cart-heading">Your Cart (<span id="count">0</span>)</h2>
+            <div class="cart-list" id="cartList"></div>
+
+            <div class="totals" aria-hidden="false">
+                <div class="row"><span class="pmeta">Subtotal</span><strong id="subtotal">$0.00</strong></div>
+                <div class="row"><span class="pmeta">Shipping</span><span id="shipping">$0.00</span></div>
+                <div class="row" style="font-size:16px"><strong>Total</strong><strong id="total">$0.00</strong></div>
+
+                <div class="checkout">
+                    <button id="checkoutBtn">Checkout</button>
+                    <button class="ghost" id="clearBtn">Clear Cart</button>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <script>
+        // Sample product catalog
+        const PRODUCTS = [
+            { id: 'p1', name: 'Classic Sneakers', price: 79.99, desc: 'Comfortable everyday sneakers', emoji: '👟' },
+            { id: 'p2', name: 'Canvas Tote', price: 24.5, desc: 'Durable cotton tote bag', emoji: '👜' },
+            { id: 'p3', name: 'Insulated Bottle', price: 34.0, desc: 'Keeps drinks hot or cold', emoji: '🧴' },
+            { id: 'p4', name: 'Wireless Earbuds', price: 129.99, desc: 'Noise isolating earbuds', emoji: '🎧' },
+        ];
+
+        // Cart stored as {id, qty}
+        let cart = loadCart();
+
+        const $products = document.getElementById('products');
+        const $cartList = document.getElementById('cartList');
+        const $count = document.getElementById('count');
+        const $subtotal = document.getElementById('subtotal');
+        const $total = document.getElementById('total');
+        const $shipping = document.getElementById('shipping');
+
+        function format(n){ return n.toLocaleString(undefined, {style:'currency', currency:'USD'}); }
+
+        function renderProducts(){
+            $products.innerHTML = '';
+            PRODUCTS.forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'product';
+                card.innerHTML = `
+                    <div class="thumb" aria-hidden="true">${p.emoji}</div>
+                    <div class="pname">${p.name}</div>
+                    <div class="pmeta">${p.desc}</div>
+                    <div class="paction">
+                        <div style="font-weight:700">${format(p.price)}</div>
+                        <button data-id="${p.id}">Add</button>
+                    </div>
+                `;
+                card.querySelector('button').addEventListener('click', ()=>addToCart(p.id));
+                $products.appendChild(card);
+            });
+        }
+
+        function renderCart(){
+            $cartList.innerHTML = '';
+            if(cart.length === 0){
+                $cartList.innerHTML = '<div style="color:var(--muted);padding:12px">Cart is empty</div>';
+            }
+
+            let subtotal = 0;
+            cart.forEach(item => {
+                const prod = PRODUCTS.find(p => p.id === item.id);
+                if(!prod) return;
+                subtotal += prod.price * item.qty;
+
+                const node = document.createElement('div');
+                node.className = 'cart-item';
+                node.innerHTML = `
+                    <div class="ci-thumb" aria-hidden="true">${prod.emoji}</div>
+                    <div class="ci-meta">
+                        <div class="ci-name">${prod.name}</div>
+                        <div class="ci-price">${format(prod.price)} each</div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+                        <div class="qty" data-id="${item.id}">
+                            <button class="dec" aria-label="Decrease">−</button>
+                            <div style="min-width:28px;text-align:center;font-weight:700">${item.qty}</div>
+                            <button class="inc" aria-label="Increase">+</button>
+                        </div>
+                        <div>
+                            <button class="remove" data-id="${item.id}">Remove</button>
+                        </div>
+                    </div>
+                `;
+                node.querySelector('.dec').addEventListener('click', ()=>updateQuantity(item.id, item.qty - 1));
+                node.querySelector('.inc').addEventListener('click', ()=>updateQuantity(item.id, item.qty + 1));
+                node.querySelector('.remove').addEventListener('click', ()=>removeItem(item.id));
+                $cartList.appendChild(node);
+            });
+
+            const shipping = subtotal > 0 ? 5.0 : 0.0; // simple flat shipping
+            const total = subtotal + shipping;
+
+            $count.textContent = cart.reduce((s,i)=>s+i.qty,0);
+            $subtotal.textContent = format(subtotal);
+            $shipping.textContent = format(shipping);
+            $total.textContent = format(total);
+            saveCart();
+        }
+
+        function addToCart(id){
+            const existing = cart.find(c => c.id === id);
+            if(existing) existing.qty += 1;
+            else cart.push({ id, qty: 1 });
+            renderCart();
+        }
+
+        function updateQuantity(id, qty){
+            if(qty <= 0) return removeItem(id);
+            const it = cart.find(c => c.id === id);
+            if(it) it.qty = qty;
+            renderCart();
+        }
+
+        function removeItem(id){
+            cart = cart.filter(c => c.id !== id);
+            renderCart();
+        }
+
+        function clearCart(){
+            cart = [];
+            renderCart();
+        }
+
+        function checkout(){
+            if(cart.length === 0){ alert('Cart is empty'); return; }
+            // emulate collecting order data
+            const order = cart.map(i => {
+                const p = PRODUCTS.find(x => x.id === i.id);
+                return { name: p.name, qty: i.qty, price: p.price };
+            });
+            alert('Order placed:\n' + order.map(o => `${o.qty}× ${o.name} — ${format(o.price*o.qty)}`).join('\n'));
+            clearCart();
+        }
+
+        function saveCart(){
+            try{ localStorage.setItem('simple_cart_v1', JSON.stringify(cart)); }
+            catch(e){ console.warn('Could not save cart', e); }
+        }
+        function loadCart(){
+            try{
+                const raw = localStorage.getItem('simple_cart_v1');
+                if(!raw) return [];
+                const data = JSON.parse(raw);
+                if(Array.isArray(data)) return data;
+            }catch(e){}
+            return [];
+        }
+
+        // Hook up buttons
+        document.getElementById('clearBtn').addEventListener('click', ()=>{ if(confirm('Clear cart?')) clearCart(); });
+        document.getElementById('checkoutBtn').addEventListener('click', checkout);
+
+        // Initial render
+        renderProducts();
+        renderCart();
+    </script>
+</body>
+</html></section>
